@@ -1,0 +1,213 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: staging
+  labels:
+    name: staging
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: staging-wp-service
+  namespace: staging
+  labels:
+    app: staging-wp
+    env: staging
+spec:
+  type: NodePort
+  selector:
+    app: staging-wp
+  ports:
+    - port: 80
+      protocol: TCP
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: staging-wp-configmap
+  namespace: staging
+  labels:
+    app: staging-wp
+    env: staging
+data:
+  wp-config.php: |
+    <?php
+    /**
+     * The base configuration for WordPress
+     *
+     * The wp-config.php creation script uses this file during the
+     * installation. You don't have to use the web site, you can
+     * copy this file to "wp-config.php" and fill in the values.
+     *
+     * This file contains the following configurations:
+     *
+     * * MySQL settings
+     * * Secret keys
+     * * Database table prefix
+     * * ABSPATH
+     *
+     * @link https://codex.wordpress.org/Editing_wp-config.php
+     *
+     * @package WordPress
+     */
+  
+    // ** MySQL settings - You can get this info from your web host ** //
+    /** The name of the database for WordPress */
+    define( 'DB_NAME', 'production' );
+  
+    /** MySQL database username */
+    define( 'DB_USER', getenv('DB_USER') );
+  
+    /** MySQL database password */
+    define( 'DB_PASSWORD', getenv('DB_PASS') );
+  
+    /** MySQL hostname */
+    define( 'DB_HOST', getenv('DB_HOST') );
+  
+    /** Database Charset to use in creating database tables. */
+    define( 'DB_CHARSET', 'utf8' );
+  
+    /** The Database Collate type. Don't change this if in doubt. */
+    define( 'DB_COLLATE', '' );
+  
+    /**#@+
+     * Authentication Unique Keys and Salts.
+     *
+     * Change these to different unique phrases!
+     * You can generate these using the {@link https://api.wordpress.org/secret-key/1.1/salt/ WordPress.org secret-key service}
+     * You can change these at any point in time to invalidate all existing cookies. This will force all users to have to log in again.
+     *
+     * @since 2.6.0
+     */
+  
+    define('AUTH_KEY',         'Yn0Qgb(|w)-YAx7|U;3fGsb~S!u_)yO<<w({Rr8vNL@+T|#yOmTnx#1dyy]J)F *');
+    define('SECURE_AUTH_KEY',  'OyMzLf7l1*0([ncdB(H[r oO]/W)mJI9&b,YlJPYYkv@M]BA-Dqpbs+YIL1qhVm?');
+    define('LOGGED_IN_KEY',    ':iMV32<K3^CD*@vb1eG{]/1Ask+}U3(?e|ZiUdk)vwmX&Q&;=+W%$E%8:fc}_af;');
+    define('NONCE_KEY',        '.HFH4`-=-RSCHCABz]2]pV?P]kzDkBMB/G]Xy~Yb?3E~46#T=L+e|wX8+^g+yAFT');
+    define('AUTH_SALT',        ') <%nq^&NUQ[>n4cm-n>q+J4(UT`_=$no0CPpvMz+At]/8mLP&x4o[ 9?c;,9Khv');
+    define('SECURE_AUTH_SALT', '|C1$;7O8t/o$X-P`T7au~{-u-G-?+(=]Xai/Snp<V`G(cFr9,q+<oC5fPg,jz&{[');
+    define('LOGGED_IN_SALT',   '0MtcA4Nl6D~f-B>$q_Y`j:/9Td@*@|am93C<V F`CBbTW=i}>b/kPwXAYBZsnHP8');
+    define('NONCE_SALT',       'ahb,zEst-eHwT!yfz)aN$Jv8C|`5.o.Go|C5}G(VDmI_1ofPece8H!u|y&0;0|bP');
+    /**#@-*/
+  
+    /**
+     * WordPress Database Table prefix.
+     *
+     * You can have multiple installations in one database if you give each
+     * a unique prefix. Only numbers, letters, and underscores please!
+     */
+    $table_prefix = 'wp_';
+  
+    /**
+     * For developers: WordPress debugging mode.
+     *
+     * Change this to true to enable the display of notices during development.
+     * It is strongly recommended that plugin and theme developers use WP_DEBUG
+     * in their development environments.
+     *
+     * For information on other constants that can be used for debugging,
+     * visit the Codex.
+     *
+     * @link https://codex.wordpress.org/Debugging_in_WordPress
+     */
+    define( 'WP_DEBUG', false );
+  
+    /* That's all, stop editing! Happy publishing. */
+  
+    /** Absolute path to the WordPress directory. */
+    if ( ! defined( 'ABSPATH' ) ) {
+        define( 'ABSPATH', dirname( __FILE__ ) . '/' );
+    }
+    
+    /** Sets up WordPress vars and included files. */
+    require_once( ABSPATH . 'wp-settings.php' );
+    define('FS_METHOD', 'direct');
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: staging-wp-secret
+  namespace: staging
+  labels:
+    app: staging-wp
+    env: staging
+type: Opaque
+data:
+  DB_USER: ZGV2b3BzY2lsc3k=
+  DB_PASS: MTIzNDU2Nzg5MA==
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: staging-wp-deployment
+  namespace: staging
+  labels:
+    app: staging-wp
+    env: staging
+spec:
+  selector:
+    matchLabels:
+      app: staging-wp
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: staging-wp
+    spec:
+      volumes:
+        - configMap:
+            name: staging-wp-configmap
+          name: config-wp
+      containers:
+        - name: staging-wp-pod
+          image: $DOCKER_REGISTRY/$DOCKER_IMAGE_NAME:$BUILD_NUMBER
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: config-wp
+              mountPath:  "/var/www/html/wp-config.php"
+              subPath: "wp-config.php"
+          env:  
+            - name: DB_HOST    
+              value: "database-production.cvlhrayg50qw.ap-southeast-1.rds.amazonaws.com"
+            - name: DB_USER    
+              valueFrom:       
+                secretKeyRef:
+                  name: staging-wp-secret
+                  key: DB_USER  
+            - name: DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: staging-wp-secret
+                  key: DB_PASS
+
+---
+
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: p-ingress
+  namespace: staging
+  annotations:
+    ## Untuk menaikan batas upload file
+    nginx.org/client-max-body-size: "10m"
+    ## Memaksa jalan di https
+   # nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+spec:
+  rules:
+## Service Location n Characters
+  - host: s-blog.borjong.monster
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: staging-wp-service
+          servicePort: 80
