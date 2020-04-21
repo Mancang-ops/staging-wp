@@ -194,7 +194,7 @@ spec:
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
-  name: p-ingress
+  name: s-ingress
   namespace: staging
   annotations:
     ## Untuk menaikan batas upload file
